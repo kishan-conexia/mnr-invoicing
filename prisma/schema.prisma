@@ -1,0 +1,985 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum DocumentStatus {
+  DRAFT
+  FINALIZED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  FINALIZED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+enum TaxType {
+  CGST_SGST
+  IGST
+}
+
+enum PaymentMode {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  UPI
+  CREDIT_CARD
+  PAYMENT_GATEWAY
+  ADJUSTMENT
+  WALLET
+  OTHER
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  CUSTOM
+}
+
+enum RecurringStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// MNR's distribution hierarchy: Company (MNR itself, implicit — not a Customer row)
+// -> Distributor L1 -> Distributor L2 -> Partner -> Customer. Each tier's parent
+// must be the tier immediately above it — enforced in the API, not just here.
+enum CustomerTier {
+  DISTRIBUTOR_L1
+  DISTRIBUTOR_L2
+  PARTNER
+  CUSTOMER
+}
+
+enum NotificationType {
+  OVERDUE_INVOICE
+  UPCOMING_RECURRING
+  FAILED_RECURRING
+  PAYMENT_RECEIVED
+  APPROVAL_REQUEST
+  CREDIT_LIMIT_VIOLATION
+  EXPIRING_QUOTATION
+  IMPORT_ERROR
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORG & ACCESS
+// ─────────────────────────────────────────────────────────────
+
+model Company {
+  id            String   @id @default(uuid())
+  name          String
+  legalName     String?
+  gstin         String?
+  pan           String?
+  cin           String?
+  registeredAddress String? // street/building line
+  city          String?
+  state         String?
+  stateCode     String?  @map("state_code")
+  country       String?  @default("India")
+  pincode       String?
+  contactEmail  String?
+  contactPhone  String?
+  logoUrl       String?
+  invoiceTheme  Json?
+  bankDetails   Json?
+  termsAndConditions String?
+  razorpayKeyId     String? @map("razorpay_key_id")
+  razorpayKeySecret String? @map("razorpay_key_secret")
+  resendApiKey      String? @map("resend_api_key")
+  resendFromEmail   String? @map("resend_from_email")
+  resendFromName    String? @map("resend_from_name")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  branches       Branch[]
+  financialYears FinancialYear[]
+  numberSequences NumberSequence[]
+  users          User[]
+  customers      Customer[]
+  productsServices ProductService[]
+  taxRates       TaxRate[]
+  invoices       Invoice[]
+  quotations     Quotation[]
+  proformaInvoices ProformaInvoice[]
+  recurringBillingProfiles RecurringBillingProfile[]
+  payments       Payment[]
+  creditNotes    CreditNote[]
+  debitNotes     DebitNote[]
+  chartOfAccounts ChartOfAccount[]
+  settings       Setting[]
+
+  @@map("companies")
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  name      String
+  gstin     String?
+  address   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@map("branches")
+}
+
+model FinancialYear {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  label     String   // e.g. "2026-27"
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  isCurrent Boolean  @default(false) @map("is_current")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  numberSequences NumberSequence[]
+
+  @@unique([companyId, label])
+  @@map("financial_years")
+}
+
+// One row per (company, document type, financial year) — powers auto invoice/receipt/etc numbering
+model NumberSequence {
+  id              String   @id @default(uuid())
+  companyId       String   @map("company_id")
+  financialYearId String   @map("financial_year_id")
+  documentType    String   @map("document_type") // INVOICE | CREDIT_NOTE | DEBIT_NOTE | RECEIPT | QUOTATION | PROFORMA
+  prefix          String   @default("")
+  lastNumber      Int      @default(0) @map("last_number")
+
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  financialYear FinancialYear @relation(fields: [financialYearId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, financialYearId, documentType])
+  @@map("number_sequences")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // Super Admin, Admin, Accounts Manager, Accountant, Sales Executive, Collection Executive, Viewer, Auditor
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+
+  rolePermissions RolePermission[]
+  users           User[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id       String @id @default(uuid())
+  resource String // invoice, payment, customer, report, tax, ...
+  action   String // view, create, edit, delete, cancel, approve, export, send, change_tax, change_invoice_number
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  companyId    String   @map("company_id")
+  roleId       String   @map("role_id")
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  isActive     Boolean  @default(true) @map("is_active")
+  twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
+  twoFactorSecret  String? @map("two_factor_secret")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  customersAsSalesperson Customer[] @relation("SalespersonCustomers")
+  payments               Payment[]  @relation("CollectedByUser")
+  auditLogs              AuditLog[]
+  followUps              FollowUp[]
+  notifications          Notification[]
+  approvalRequestsRaised ApprovalRequest[] @relation("RequestedBy")
+  approvalRequestsActed  ApprovalRequest[] @relation("ActedBy")
+  walletTransactions     WalletTransaction[]
+  reviewedTopupRequests  WalletTopupRequest[]
+
+  @@index([companyId])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CUSTOMERS
+// ─────────────────────────────────────────────────────────────
+
+model Customer {
+  id                  String   @id @default(uuid())
+  companyId           String   @map("company_id")
+  customerCode        String   @map("customer_code")
+  name                String
+  displayName         String?  @map("display_name") // What shows on invoices/documents; required going forward, falls back to companyName for older records
+  portalEmail         String?  @unique @map("portal_email")
+  portalPasswordHash  String?  @map("portal_password_hash")
+  companyName         String?  @map("company_name")
+  gstin               String?
+  pan                 String?
+  state               String?
+  stateCode           String?  @map("state_code")
+  category            String?
+  tier                CustomerTier @default(CUSTOMER)
+  parentCustomerId    String?  @map("parent_customer_id")
+  salespersonId       String?  @map("salesperson_id")
+  creditLimit         Decimal? @db.Decimal(14, 2) @map("credit_limit")
+  paymentTermsDays    Int?     @map("payment_terms_days")
+  openingBalance      Decimal  @default(0) @db.Decimal(14, 2) @map("opening_balance")
+  internalNotes       String?  @map("internal_notes")
+  status              CustomerStatus @default(ACTIVE)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  parent      Customer?         @relation("CustomerHierarchy", fields: [parentCustomerId], references: [id], onDelete: SetNull)
+  children    Customer[]        @relation("CustomerHierarchy")
+  salesperson User?             @relation("SalespersonCustomers", fields: [salespersonId], references: [id], onDelete: SetNull)
+  contacts    CustomerContact[]
+  addresses   CustomerAddress[]
+  invoices    Invoice[]
+  issuedInvoices Invoice[] @relation("IssuedInvoices")
+  quotations  Quotation[]
+  proformaInvoices ProformaInvoice[]
+  payments    Payment[]
+  creditNotes CreditNote[]
+  debitNotes  DebitNote[]
+  recurringProfiles RecurringBillingProfile[]
+  ledgerEntries CustomerLedgerEntry[]
+  followUps   FollowUp[]
+  attachments Attachment[]
+  wallet      Wallet?
+  topupRequests WalletTopupRequest[]
+  gatewayTopupOrders GatewayTopupOrder[]
+
+  @@unique([companyId, customerCode])
+  @@index([companyId, name])
+  @@map("customers")
+}
+
+model CustomerContact {
+  id         String  @id @default(uuid())
+  customerId String  @map("customer_id")
+  name       String
+  designation String?
+  mobile     String?
+  email      String?
+  isPrimary  Boolean @default(false) @map("is_primary")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_contacts")
+}
+
+model CustomerAddress {
+  id         String  @id @default(uuid())
+  customerId String  @map("customer_id")
+  type       String  // BILLING | INSTALLATION
+  line1      String
+  line2      String?
+  city       String?
+  state      String?
+  stateCode  String? @map("state_code")
+  pincode    String?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_addresses")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CATALOGUE
+// ─────────────────────────────────────────────────────────────
+
+model ProductService {
+  id              String   @id @default(uuid())
+  companyId       String   @map("company_id")
+  name            String
+  code            String
+  hsnSac          String?  @map("hsn_sac")
+  description     String?
+  unit            String   @default("NOS")
+  standardRate    Decimal  @db.Decimal(14, 2) @map("standard_rate")
+  taxRateId       String?  @map("tax_rate_id")
+  defaultDiscountPct Decimal @default(0) @db.Decimal(5, 2) @map("default_discount_pct")
+  billingFrequency BillingCycle?
+  isActive        Boolean  @default(true) @map("is_active")
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  taxRate TaxRate? @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+
+  invoiceItems InvoiceItem[]
+
+  @@unique([companyId, code])
+  @@map("products_services")
+}
+
+model TaxRate {
+  id        String  @id @default(uuid())
+  companyId String  @map("company_id")
+  name      String  // e.g. "GST 18%"
+  ratePct   Decimal @db.Decimal(5, 2) @map("rate_pct")
+  isActive  Boolean @default(true) @map("is_active")
+
+  company  Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  products ProductService[]
+
+  @@map("tax_rates")
+}
+
+// ─────────────────────────────────────────────────────────────
+// SALES DOCUMENTS
+// ─────────────────────────────────────────────────────────────
+
+model Quotation {
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  customerId    String   @map("customer_id")
+  quotationNumber String @map("quotation_number")
+  quotationDate DateTime @map("quotation_date")
+  validUntil    DateTime? @map("valid_until")
+  status        QuotationStatus @default(DRAFT)
+  termsAndConditions String? @map("terms_and_conditions")
+  totalValue    Decimal  @db.Decimal(14, 2) @map("total_value")
+  convertedInvoiceId String? @map("converted_invoice_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  company  Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items    QuotationItem[]
+
+  @@unique([companyId, quotationNumber])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id            String  @id @default(uuid())
+  quotationId   String  @map("quotation_id")
+  description   String
+  quantity      Decimal @db.Decimal(12, 2)
+  rate          Decimal @db.Decimal(14, 2)
+  discountPct   Decimal @default(0) @db.Decimal(5, 2) @map("discount_pct")
+  taxRatePct    Decimal @default(0) @db.Decimal(5, 2) @map("tax_rate_pct")
+  taxableValue  Decimal @db.Decimal(14, 2) @map("taxable_value")
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@map("quotation_items")
+}
+
+model ProformaInvoice {
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  customerId    String   @map("customer_id")
+  proformaNumber String  @map("proforma_number")
+  proformaDate  DateTime @map("proforma_date")
+  status        QuotationStatus @default(DRAFT)
+  totalValue    Decimal  @db.Decimal(14, 2) @map("total_value")
+  convertedInvoiceId String? @map("converted_invoice_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  company  Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items    ProformaItem[]
+
+  @@unique([companyId, proformaNumber])
+  @@map("proforma_invoices")
+}
+
+model ProformaItem {
+  id          String  @id @default(uuid())
+  proformaId  String  @map("proforma_id")
+  description String
+  quantity    Decimal @db.Decimal(12, 2)
+  rate        Decimal @db.Decimal(14, 2)
+  discountPct Decimal @default(0) @db.Decimal(5, 2) @map("discount_pct")
+  taxRatePct  Decimal @default(0) @db.Decimal(5, 2) @map("tax_rate_pct")
+  taxableValue Decimal @db.Decimal(14, 2) @map("taxable_value")
+
+  proforma ProformaInvoice @relation(fields: [proformaId], references: [id], onDelete: Cascade)
+
+  @@map("proforma_items")
+}
+
+model RecurringBillingProfile {
+  id                String   @id @default(uuid())
+  companyId         String   @map("company_id")
+  customerId        String   @map("customer_id")
+  productServiceId  String   @map("product_service_id")
+  billingAmount     Decimal  @db.Decimal(14, 2) @map("billing_amount")
+  taxRatePct        Decimal  @db.Decimal(5, 2) @map("tax_rate_pct")
+  billingCycle      BillingCycle @map("billing_cycle")
+  customCycleDays   Int?     @map("custom_cycle_days")
+  billingStartDate  DateTime @map("billing_start_date")
+  billingEndDate    DateTime? @map("billing_end_date")
+  nextBillingDate   DateTime @map("next_billing_date")
+  dueDateRuleDays   Int      @default(15) @map("due_date_rule_days")
+  autoGenerate      Boolean  @default(true) @map("auto_generate")
+  autoEmail         Boolean  @default(false) @map("auto_email")
+  status            RecurringStatus @default(ACTIVE)
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoices Invoice[]
+
+  @@index([status, nextBillingDate])
+  @@map("recurring_billing_profiles")
+}
+
+model Invoice {
+  id                String   @id @default(uuid())
+  companyId         String   @map("company_id")
+  customerId        String   @map("customer_id")
+  issuedByCustomerId String? @map("issued_by_customer_id") // set when a distributor/partner issues this to their own downline via the portal
+  shareToken        String?  @unique @map("share_token") // lets the invoice be viewed without logging in, for email/WhatsApp sharing
+  recurringProfileId String? @map("recurring_profile_id")
+  invoiceNumber     String?  @map("invoice_number") // null while draft, assigned on finalize
+  invoiceDate       DateTime @map("invoice_date")
+  dueDate           DateTime @map("due_date")
+  placeOfSupplyState String  @map("place_of_supply_state")
+  taxType           TaxType  @map("tax_type")
+  poNumber          String?  @map("po_number")
+  poDate            DateTime? @map("po_date")
+  servicePeriodStart DateTime? @map("service_period_start")
+  servicePeriodEnd  DateTime? @map("service_period_end")
+  subtotal          Decimal  @db.Decimal(14, 2)
+  discountTotal     Decimal  @default(0) @db.Decimal(14, 2) @map("discount_total")
+  taxableValue      Decimal  @db.Decimal(14, 2) @map("taxable_value")
+  cgstAmount        Decimal  @default(0) @db.Decimal(14, 2) @map("cgst_amount")
+  sgstAmount        Decimal  @default(0) @db.Decimal(14, 2) @map("sgst_amount")
+  igstAmount        Decimal  @default(0) @db.Decimal(14, 2) @map("igst_amount")
+  otherCharges      Decimal  @default(0) @db.Decimal(14, 2) @map("other_charges")
+  roundOff          Decimal  @default(0) @db.Decimal(6, 2) @map("round_off")
+  totalValue        Decimal  @db.Decimal(14, 2) @map("total_value")
+  amountPaid        Decimal  @default(0) @db.Decimal(14, 2) @map("amount_paid")
+  status            InvoiceStatus @default(DRAFT)
+  notes             String?
+  cancellationReason String? @map("cancellation_reason")
+  cancelledAt       DateTime? @map("cancelled_at")
+  cancelledById     String?  @map("cancelled_by_id")
+  finalizedAt       DateTime? @map("finalized_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  issuedByCustomer Customer? @relation("IssuedInvoices", fields: [issuedByCustomerId], references: [id], onDelete: SetNull)
+  recurringProfile RecurringBillingProfile? @relation(fields: [recurringProfileId], references: [id], onDelete: SetNull)
+  items      InvoiceItem[]
+  allocations PaymentAllocation[]
+  creditNotes CreditNote[]
+  debitNotes  DebitNote[]
+  attachments Attachment[]
+
+  @@unique([companyId, invoiceNumber])
+  @@index([companyId, status])
+  @@index([customerId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id               String  @id @default(uuid())
+  invoiceId        String  @map("invoice_id")
+  productServiceId String? @map("product_service_id")
+  description      String
+  quantity         Decimal @db.Decimal(12, 2)
+  rate             Decimal @db.Decimal(14, 2)
+  discountPct      Decimal @default(0) @db.Decimal(5, 2) @map("discount_pct")
+  taxableValue     Decimal @db.Decimal(14, 2) @map("taxable_value")
+  taxRatePct       Decimal @default(0) @db.Decimal(5, 2) @map("tax_rate_pct")
+  cgstAmount       Decimal @default(0) @db.Decimal(14, 2) @map("cgst_amount")
+  sgstAmount       Decimal @default(0) @db.Decimal(14, 2) @map("sgst_amount")
+  igstAmount       Decimal @default(0) @db.Decimal(14, 2) @map("igst_amount")
+  lineTotal        Decimal @db.Decimal(14, 2) @map("line_total")
+
+  invoice        Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productService ProductService? @relation(fields: [productServiceId], references: [id], onDelete: SetNull)
+
+  @@map("invoice_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MONEY IN
+// ─────────────────────────────────────────────────────────────
+
+model Payment {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  customerId     String   @map("customer_id")
+  paymentDate    DateTime @map("payment_date")
+  amount         Decimal  @db.Decimal(14, 2)
+  unallocatedAmount Decimal @db.Decimal(14, 2) @map("unallocated_amount")
+  tdsDeducted    Decimal  @default(0) @db.Decimal(14, 2) @map("tds_deducted")
+  bankCharges    Decimal  @default(0) @db.Decimal(14, 2) @map("bank_charges")
+  mode           PaymentMode
+  referenceNumber String? @map("reference_number")
+  notes          String?
+  collectedById  String?  @map("collected_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  collectedBy User?    @relation("CollectedByUser", fields: [collectedById], references: [id], onDelete: SetNull)
+
+  allocations PaymentAllocation[]
+  receipt     Receipt?
+  attachments Attachment[]
+
+  @@index([companyId, customerId])
+  @@map("payments")
+}
+
+// Many-to-many join: a payment can settle multiple invoices, an invoice can be settled by multiple payments
+model PaymentAllocation {
+  id        String  @id @default(uuid())
+  paymentId String  @map("payment_id")
+  invoiceId String  @map("invoice_id")
+  amount    Decimal @db.Decimal(14, 2)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, invoiceId])
+  @@map("payment_allocations")
+}
+
+model Receipt {
+  id            String   @id @default(uuid())
+  paymentId     String   @unique @map("payment_id")
+  receiptNumber String   @map("receipt_number")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("receipts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ADJUSTMENTS
+// ─────────────────────────────────────────────────────────────
+
+model CreditNote {
+  id              String   @id @default(uuid())
+  companyId       String   @map("company_id")
+  customerId      String   @map("customer_id")
+  invoiceId       String?  @map("invoice_id")
+  creditNoteNumber String  @map("credit_note_number")
+  noteDate        DateTime @map("note_date")
+  reason          String?
+  totalValue      Decimal  @db.Decimal(14, 2) @map("total_value")
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoice  Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  items    CreditNoteItem[]
+
+  @@unique([companyId, creditNoteNumber])
+  @@map("credit_notes")
+}
+
+model CreditNoteItem {
+  id           String  @id @default(uuid())
+  creditNoteId String  @map("credit_note_id")
+  description  String
+  amount       Decimal @db.Decimal(14, 2)
+  taxAmount    Decimal @default(0) @db.Decimal(14, 2) @map("tax_amount")
+
+  creditNote CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+
+  @@map("credit_note_items")
+}
+
+model DebitNote {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  customerId     String   @map("customer_id")
+  invoiceId      String?  @map("invoice_id")
+  debitNoteNumber String  @map("debit_note_number")
+  noteDate       DateTime @map("note_date")
+  reason         String?
+  totalValue     Decimal  @db.Decimal(14, 2) @map("total_value")
+  approvalStatus ApprovalStatus @default(PENDING) @map("approval_status")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoice  Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  items    DebitNoteItem[]
+
+  @@unique([companyId, debitNoteNumber])
+  @@map("debit_notes")
+}
+
+model DebitNoteItem {
+  id          String  @id @default(uuid())
+  debitNoteId String  @map("debit_note_id")
+  description String
+  amount      Decimal @db.Decimal(14, 2)
+  taxAmount   Decimal @default(0) @db.Decimal(14, 2) @map("tax_amount")
+
+  debitNote DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+
+  @@map("debit_note_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACCOUNTING CORE
+// ─────────────────────────────────────────────────────────────
+
+model ChartOfAccount {
+  id          String  @id @default(uuid())
+  companyId   String  @map("company_id")
+  code        String
+  name        String  // Accounts Receivable, Sales, Output CGST, Output SGST, Output IGST, Bank, Cash, Round Off, ...
+  accountType String  @map("account_type") // ASSET | LIABILITY | INCOME | EXPENSE | EQUITY
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  ledgerEntries LedgerEntry[]
+
+  @@unique([companyId, code])
+  @@map("chart_of_accounts")
+}
+
+// Double-entry postings. document_type + document_id point back to the source (invoice, payment, credit_note, ...)
+model LedgerEntry {
+  id           String   @id @default(uuid())
+  accountId    String   @map("account_id")
+  documentType String   @map("document_type")
+  documentId   String   @map("document_id")
+  debit        Decimal  @default(0) @db.Decimal(14, 2)
+  credit       Decimal  @default(0) @db.Decimal(14, 2)
+  entryDate    DateTime @map("entry_date")
+  narration    String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  account ChartOfAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([documentType, documentId])
+  @@index([accountId, entryDate])
+  @@map("ledger_entries")
+}
+
+// Human-readable running balance per customer, derived from LedgerEntry in the same transaction that writes it
+model CustomerLedgerEntry {
+  id            String   @id @default(uuid())
+  customerId    String   @map("customer_id")
+  entryDate     DateTime @map("entry_date")
+  particulars   String
+  documentType  String   @map("document_type")
+  documentId    String   @map("document_id")
+  documentNumber String? @map("document_number")
+  debit         Decimal  @default(0) @db.Decimal(14, 2)
+  credit        Decimal  @default(0) @db.Decimal(14, 2)
+  runningBalance Decimal @db.Decimal(14, 2) @map("running_balance")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([customerId, entryDate])
+  @@map("customer_ledger_entries")
+}
+
+// Prepaid wallet held by any customer in the distribution hierarchy (Distributor
+// L1/L2, Partner, or end Customer). Funded either by a direct topup (money
+// received from outside the system) or a transfer from a parent's wallet
+// down the hierarchy, and spent by paying an invoice from wallet balance.
+model Wallet {
+  id         String   @id @default(uuid())
+  customerId String   @unique @map("customer_id")
+  balance    Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  customer     Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+enum WalletTransactionType {
+  TOPUP           // money received from outside the system, credited directly
+  TRANSFER_IN     // received from a parent's wallet
+  TRANSFER_OUT    // sent to a child's wallet
+  INVOICE_PAYMENT // debited to pay an invoice
+  ADJUSTMENT      // manual correction
+}
+
+model WalletTransaction {
+  id            String   @id @default(uuid())
+  walletId      String   @map("wallet_id")
+  type          WalletTransactionType
+  amount        Decimal  @db.Decimal(14, 2) // always positive; `type` determines direction
+  balanceAfter  Decimal  @db.Decimal(14, 2) @map("balance_after")
+  referenceType String?  @map("reference_type") // "PAYMENT" | "TRANSFER" | ...
+  referenceId   String?  @map("reference_id")
+  notes         String?
+  createdById   String?  @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  wallet    Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  createdBy User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+  @@map("wallet_transactions")
+}
+
+// A portal user's self-service request to add funds to their own wallet.
+// Never credits the wallet directly — an admin must approve it first, at
+// which point it becomes a normal TOPUP wallet transaction. This is the
+// control point that keeps the prepaid system honest without a payment
+// gateway wired up yet.
+model WalletTopupRequest {
+  id           String   @id @default(uuid())
+  customerId   String   @map("customer_id")
+  amount       Decimal  @db.Decimal(14, 2)
+  notes        String?
+  status       String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  requestedAt  DateTime @default(now()) @map("requested_at")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewedById String?  @map("reviewed_by_id")
+
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reviewedBy User?    @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([customerId, status])
+  @@map("wallet_topup_requests")
+}
+
+// Tracks every Razorpay order created for an online wallet top-up, from
+// creation through payment verification. Crediting the wallet only ever
+// happens after the payment signature is verified server-side — the
+// `status` field is the source of truth for whether that happened, which
+// also prevents the same successful payment from ever being credited twice.
+model GatewayTopupOrder {
+  id                String   @id @default(uuid())
+  customerId        String   @map("customer_id")
+  amount            Decimal  @db.Decimal(14, 2)
+  razorpayOrderId   String   @unique @map("razorpay_order_id")
+  razorpayPaymentId String?  @map("razorpay_payment_id")
+  status            String   @default("CREATED") // CREATED | PAID | FAILED
+  createdAt         DateTime @default(now()) @map("created_at")
+  paidAt            DateTime? @map("paid_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, status])
+  @@map("gateway_topup_orders")
+}
+
+// ─────────────────────────────────────────────────────────────
+// OPERATIONS
+// ─────────────────────────────────────────────────────────────
+
+model FollowUp {
+  id             String   @id @default(uuid())
+  customerId     String   @map("customer_id")
+  assignedToId   String?  @map("assigned_to_id")
+  promiseToPayDate DateTime? @map("promise_to_pay_date")
+  followUpDate   DateTime? @map("follow_up_date")
+  status         String   @default("OPEN")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedTo User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@map("follow_ups")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Attachment {
+  id           String   @id @default(uuid())
+  fileName     String   @map("file_name")
+  filePath     String   @map("file_path")
+  mimeType     String?  @map("mime_type")
+  sizeBytes    Int?     @map("size_bytes")
+  customerId   String?  @map("customer_id")
+  invoiceId    String?  @map("invoice_id")
+  paymentId    String?  @map("payment_id")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoice  Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  payment  Payment?  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model EmailLog {
+  id         String   @id @default(uuid())
+  toAddress  String   @map("to_address")
+  subject    String
+  documentType String? @map("document_type")
+  documentId String?  @map("document_id")
+  status     String   // SENT | FAILED
+  errorMessage String? @map("error_message")
+  sentAt     DateTime @default(now()) @map("sent_at")
+
+  @@map("email_logs")
+}
+
+model ReminderRule {
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  name          String
+  triggerType   String   @map("trigger_type") // BEFORE_DUE | ON_DUE | AFTER_DUE
+  offsetDays    Int      @map("offset_days")
+  repeatEvery   Int?     @map("repeat_every_days")
+  templateBody  String   @map("template_body")
+  isActive      Boolean  @default(true) @map("is_active")
+
+  reminderLogs ReminderLog[]
+
+  @@map("reminder_rules")
+}
+
+model ReminderLog {
+  id        String   @id @default(uuid())
+  ruleId    String   @map("rule_id")
+  invoiceId String   @map("invoice_id")
+  channel   String   // EMAIL | WHATSAPP | SMS
+  status    String   // SENT | FAILED
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  rule ReminderRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, invoiceId, sentAt])
+  @@map("reminder_logs")
+}
+
+model ApprovalRule {
+  id           String  @id @default(uuid())
+  companyId    String  @map("company_id")
+  documentType String  @map("document_type") // INVOICE_HIGH_VALUE | DISCOUNT | CREDIT_NOTE | DEBIT_NOTE | CANCELLATION | TAX_OVERRIDE | BACKDATED
+  thresholdValue Decimal? @db.Decimal(14, 2) @map("threshold_value")
+  approverRoleId String @map("approver_role_id")
+  isActive     Boolean @default(true) @map("is_active")
+
+  approvalRequests ApprovalRequest[]
+
+  @@map("approval_rules")
+}
+
+model ApprovalRequest {
+  id           String   @id @default(uuid())
+  ruleId       String   @map("rule_id")
+  documentType String   @map("document_type")
+  documentId   String   @map("document_id")
+  requestedById String  @map("requested_by_id")
+  actedById    String?  @map("acted_by_id")
+  status       ApprovalStatus @default(PENDING)
+  comments     String?
+  requestedAt  DateTime @default(now()) @map("requested_at")
+  actedAt      DateTime? @map("acted_at")
+
+  rule        ApprovalRule @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  requestedBy User         @relation("RequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  actedBy     User?        @relation("ActedBy", fields: [actedById], references: [id], onDelete: SetNull)
+
+  @@map("approval_requests")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String   // CREATE | UPDATE | DELETE | CANCEL | APPROVE | ...
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model Setting {
+  id        String @id @default(uuid())
+  companyId String @map("company_id")
+  key       String
+  value     Json
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+  @@map("settings")
+}

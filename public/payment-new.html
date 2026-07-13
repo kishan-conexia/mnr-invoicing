@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Record Payment</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f4f5f7; margin: 0; color: #222; }
+  header { background: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e2e2; }
+  header h1 { font-size: 16px; margin: 0; }
+  nav { display: flex; gap: 16px; margin-top: 4px; }
+  nav a { font-size: 13px; color: #1a73e8; text-decoration: none; }
+  .who { font-size: 13px; color: #666; margin-right: 12px; }
+  header button { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  main { padding: 32px; max-width: 800px; margin: 0 auto; }
+  .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; margin: 0 0 16px; }
+  .row { display: flex; gap: 16px; margin-bottom: 14px; }
+  .row > div { flex: 1; }
+  label { display: block; font-size: 13px; margin-bottom: 4px; color: #444; }
+  input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  th, td { text-align: left; padding: 8px; font-size: 13px; border-bottom: 1px solid #eee; }
+  th { color: #666; font-weight: 500; }
+  .num { text-align: right; }
+  .alloc-input { width: 110px; text-align: right; }
+  .unallocatedNote { font-size: 13px; margin-top: 10px; padding: 8px 12px; border-radius: 6px; background: #f4f5f7; }
+  .unallocatedNote.over { background: #fde0e0; color: #a11e1e; }
+  #saveBtn { background: #1a73e8; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 14px; }
+  #errorBox { color: #d33; font-size: 13px; margin-top: 10px; display: none; }
+</style>
+</head>
+<body>
+<main>
+    <div class="card">
+      <h2>Record Payment</h2>
+      <div class="row">
+        <div>
+          <label>Customer</label>
+          <select id="f_customer"></select>
+        </div>
+        <div>
+          <label>Payment date</label>
+          <input type="date" id="f_date">
+        </div>
+        <div>
+          <label>Amount received (₹)</label>
+          <input type="number" id="f_amount" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Payment mode</label>
+          <select id="f_mode">
+            <option value="CASH">Cash</option>
+            <option value="BANK_TRANSFER" selected>Bank transfer</option>
+            <option value="CHEQUE">Cheque</option>
+            <option value="UPI">UPI</option>
+            <option value="CREDIT_CARD">Credit card</option>
+            <option value="PAYMENT_GATEWAY">Payment gateway</option>
+            <option value="WALLET">Wallet (prepaid balance)</option>
+            <option value="ADJUSTMENT">Adjustment</option>
+            <option value="OTHER">Other</option>
+          </select>
+          <div id="walletBalanceNote" style="font-size:12px; color:#666; margin-top:4px; display:none;"></div>
+        </div>
+        <div>
+          <label>Reference number (optional)</label>
+          <input id="f_reference" placeholder="UTR / cheque no.">
+        </div>
+        <div>
+          <label>Notes (optional)</label>
+          <input id="f_notes">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Allocate to outstanding invoices</h2>
+      <p style="font-size:13px; color:#666; margin-top:-8px;">Pick a customer above to see their unpaid invoices. Leave amounts at 0 to record this as an unallocated / advance payment instead.</p>
+      <table>
+        <thead><tr><th>Invoice #</th><th>Date</th><th class="num">Total (₹)</th><th class="num">Outstanding (₹)</th><th class="num">Allocate (₹)</th></tr></thead>
+        <tbody id="invoiceRows"><tr><td colspan="5" style="color:#999">Pick a customer to see their invoices.</td></tr></tbody>
+      </table>
+      <div class="unallocatedNote" id="unallocatedNote">Unallocated amount: ₹0.00</div>
+
+      <div id="errorBox"></div>
+      <div style="margin-top: 16px; text-align: right;">
+        <button id="saveBtn">Save payment</button>
+      </div>
+    </div>
+  </main>
+  <script src="app-shell.js"></script>
+  <script src="header-logo.js"></script>
+  <script src="payment-new.js"></script>
+</body>
+</html>

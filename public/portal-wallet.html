@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Your Wallet</title>
+<link rel="stylesheet" href="portal-theme.css">
+</head>
+<body>
+<main>
+    <div class="card" style="margin-bottom:20px;">
+      <h3>Your wallet balance</h3>
+      <div class="balanceValue" id="balanceValue">₹0.00</div>
+      <span class="tierBadge" id="tierBadge"></span>
+      <div style="margin-top:14px; display:flex; gap:10px;">
+        <button class="btn-primary" id="payOnlineBtn" style="display:none;">⚡ Pay online</button>
+        <button class="btn-secondary" id="topupBtn">Request manual top-up</button>
+      </div>
+      <div style="font-size:12px; color:#999; margin-top:8px; display:none;" id="gatewayDisabledNote">
+        Online payment isn't set up yet — use "Request manual top-up" and MNR will confirm it.
+      </div>
+    </div>
+
+    <div class="sectionCard">
+      <h3>Top-up Requests</h3>
+      <table>
+        <thead><tr><th>Requested</th><th class="num">Amount (₹)</th><th>Notes</th><th>Status</th></tr></thead>
+        <tbody id="topupRequestRows"></tbody>
+      </table>
+    </div>
+
+    <div class="sectionCard">
+      <h3>Wallet Transaction History</h3>
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th class="num">Balance after</th><th>Notes</th></tr></thead>
+        <tbody id="txnRows"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal-bg" id="topupModal">
+    <div class="modal">
+      <h3>Request wallet top-up</h3>
+      <p style="font-size:12px; color:#666; margin-top:-8px;">This creates a request MNR will review before your balance updates.</p>
+      <label>Amount (₹)</label>
+      <input id="tu_amount" type="number" min="0" step="0.01">
+      <label>Notes (optional)</label>
+      <input id="tu_notes" placeholder="e.g. Paid via NEFT, ref #12345">
+      <div class="modalError" id="tu_error"></div>
+      <div class="modalActions">
+        <button class="cancel" id="tu_cancel">Cancel</button>
+        <button class="save" id="tu_save">Submit request</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="payOnlineModal">
+    <div class="modal">
+      <h3>Pay online</h3>
+      <p style="font-size:12px; color:#666; margin-top:-8px;">Your balance updates immediately once the payment is confirmed.</p>
+      <label>Amount (₹)</label>
+      <input id="po_amount" type="number" min="1" step="0.01">
+      <div class="modalError" id="po_error"></div>
+      <div class="modalActions">
+        <button class="cancel" id="po_cancel">Cancel</button>
+        <button class="save" id="po_pay">Continue to payment</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="portal-nav.js"></script>
+  <script src="portal-common.js"></script>
+  <script src="portal-wallet.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Your Customers</title>
+<link rel="stylesheet" href="portal-theme.css">
+</head>
+<body>
+<main>
+    <div class="cardHeaderRow">
+      <h3 style="font-size:18px;">Your Customers</h3>
+      <button class="btn-primary" id="addBtn">+ Add customer</button>
+    </div>
+    <div class="gateNote" id="gateNote" style="display:none;"></div>
+    <div class="sectionCard">
+      <table>
+        <thead><tr><th>Code</th><th>Display Name</th><th>Tier</th><th>GSTIN</th><th>State</th><th class="num">Wallet (₹)</th><th>Portal login</th></tr></thead>
+        <tbody id="customerRows"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal-bg" id="modalBg">
+    <div class="modal">
+      <h3>Add customer</h3>
+      <p style="font-size:12px; color:#666; margin-top:-8px;" id="tierNote"></p>
+      <div class="row">
+        <div>
+          <label>Contact / person name</label>
+          <input id="f_name">
+        </div>
+        <div>
+          <label>Company name (optional)</label>
+          <input id="f_company">
+        </div>
+      </div>
+      <label>Display name (required — this is what shows on invoices)</label>
+      <select id="f_displayName"></select>
+      <div class="fieldError" id="displayNameError"></div>
+      <div class="row">
+        <div>
+          <label>GSTIN (optional)</label>
+          <input id="f_gstin" maxlength="15">
+          <div class="fieldError" id="gstinError"></div>
+        </div>
+        <div>
+          <label>State (required for GST)</label>
+          <select id="f_state"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Billing address line 1 (optional)</label>
+          <input id="b_line1">
+        </div>
+        <div>
+          <label>City</label>
+          <input id="b_city">
+        </div>
+        <div>
+          <label>Pincode</label>
+          <input id="b_pincode" maxlength="6">
+          <div class="fieldError" id="pincodeError"></div>
+        </div>
+      </div>
+      <h4 style="margin: 14px 0 8px;">Portal access <span style="font-weight:400; color:#888; font-size:11px;">(optional)</span></h4>
+      <div class="row">
+        <div>
+          <label>Portal login email</label>
+          <input id="f_portalEmail" type="email">
+        </div>
+        <div>
+          <label>Portal password</label>
+          <input id="f_portalPassword" type="password" placeholder="At least 8 characters">
+        </div>
+      </div>
+      <div class="modalError" id="modalError"></div>
+      <div class="modalActions">
+        <button class="cancel" id="cancelBtn">Cancel</button>
+        <button class="save" id="saveBtn">Add customer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="portal-nav.js"></script>
+  <script src="portal-common.js"></script>
+  <script src="portal-customers.js"></script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — New Invoice</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f4f5f7; margin: 0; color: #222; }
+  header { background: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e2e2; }
+  header h1 { font-size: 16px; margin: 0; }
+  nav { display: flex; gap: 16px; margin-top: 4px; }
+  nav a { font-size: 13px; color: #1a73e8; text-decoration: none; }
+  .who { font-size: 13px; color: #666; margin-right: 12px; }
+  header button { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  main { padding: 32px; max-width: 950px; margin: 0 auto; }
+  .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; margin: 0 0 16px; }
+  .row { display: flex; gap: 16px; margin-bottom: 14px; }
+  .row > div { flex: 1; }
+  label { display: block; font-size: 13px; margin-bottom: 4px; color: #444; }
+  input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  th, td { text-align: left; padding: 6px 8px; font-size: 13px; vertical-align: top; }
+  th { color: #666; font-weight: 500; }
+  td input { font-size: 13px; padding: 6px; }
+  .num { text-align: right; }
+  #addLineBtn { background: #eee; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  .removeBtn { background: none; border: none; color: #d33; cursor: pointer; font-size: 16px; }
+  .summary { margin-top: 16px; width: 320px; margin-left: auto; }
+  .summary div { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+  .summary .total { font-weight: 700; font-size: 16px; border-top: 1px solid #ddd; margin-top: 6px; padding-top: 8px; }
+  #saveBtn { background: #1a73e8; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 14px; }
+  #errorBox { color: #d33; font-size: 13px; margin-top: 10px; display: none; }
+  .taxTypeNote { font-size: 12px; color: #666; margin-top: 4px; }
+
+  /* Searchable combo box */
+  .combo { position: relative; }
+  .combo-dropdown {
+    display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+    background: white; border: 1px solid #ccc; border-radius: 6px; margin-top: 2px;
+    max-height: 220px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+  .combo-dropdown.open { display: block; }
+  .combo-option { padding: 8px 10px; font-size: 13px; cursor: pointer; }
+  .combo-option:hover, .combo-option.highlighted { background: #f0f4ff; }
+  .combo-option .sub { color: #888; font-size: 11px; }
+  .combo-option.addNew { color: #1a73e8; font-weight: 600; border-top: 1px solid #eee; }
+  .combo-empty { padding: 8px 10px; font-size: 13px; color: #999; }
+
+  /* Quick-add modals */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal { background: white; padding: 24px; border-radius: 10px; width: 340px; }
+  .modal h3 { margin-top: 0; }
+  .modal label { display: block; font-size: 13px; margin-bottom: 4px; }
+  .modal input, .modal select { width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal button { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
+  .modal .cancel { background: #eee; }
+  .modal .save { background: #1a73e8; color: white; }
+  .modal .modalError { color: #d33; font-size: 13px; margin-top: 4px; display: none; }
+</style>
+</head>
+<body>
+<main>
+    <div class="card">
+      <h2>New Invoice</h2>
+      <div class="row">
+        <div>
+          <label>Customer</label>
+          <div class="combo" id="customerCombo">
+            <input type="text" id="f_customerSearch" placeholder="Type to search customers…" autocomplete="off">
+            <input type="hidden" id="f_customer">
+            <div class="combo-dropdown" id="customerDropdown"></div>
+          </div>
+          <div class="taxTypeNote" id="taxTypeNote"></div>
+        </div>
+        <div>
+          <label>Invoice date</label>
+          <input type="date" id="f_invoiceDate">
+        </div>
+        <div>
+          <label>Due date</label>
+          <input type="date" id="f_dueDate">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Line items</h2>
+      <table id="itemsTable">
+        <thead>
+          <tr>
+            <th style="width:28%">Service</th>
+            <th style="width:9%">Qty</th>
+            <th style="width:13%">Rate (₹)</th>
+            <th style="width:9%">Disc %</th>
+            <th style="width:9%">Tax %</th>
+            <th style="width:15%" class="num">Line total (₹)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+      <button id="addLineBtn">+ Add line</button>
+
+      <div class="summary">
+        <div><span>Subtotal</span><span id="s_subtotal">₹0.00</span></div>
+        <div><span>Taxable value</span><span id="s_taxable">₹0.00</span></div>
+        <div id="s_cgstRow"><span>CGST</span><span id="s_cgst">₹0.00</span></div>
+        <div id="s_sgstRow"><span>SGST</span><span id="s_sgst">₹0.00</span></div>
+        <div id="s_igstRow"><span>IGST</span><span id="s_igst">₹0.00</span></div>
+        <div class="total"><span>Total</span><span id="s_total">₹0.00</span></div>
+      </div>
+
+      <div id="errorBox"></div>
+      <div style="margin-top: 16px; text-align: right;">
+        <button id="saveBtn">Save &amp; finalize invoice</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Quick-add customer -->
+  <div class="modal-bg" id="quickAddCustomerModal">
+    <div class="modal">
+      <h3>Add new customer</h3>
+      <label>Customer code</label>
+      <input id="qc_code" placeholder="CUST-0005">
+      <label>Contact / person name</label>
+      <input id="qc_name">
+      <label>Company name (optional)</label>
+      <input id="qc_company">
+      <label>Display name (required — this is what shows on invoices)</label>
+      <select id="qc_displayName"></select>
+      <label>State (required for GST calculation)</label>
+      <select id="qc_state"></select>
+      <label>GSTIN (optional)</label>
+      <input id="qc_gstin" maxlength="15">
+      <div class="modalError" id="qc_error"></div>
+      <div class="actions">
+        <button class="cancel" id="qc_cancel">Cancel</button>
+        <button class="save" id="qc_save">Add customer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick-add service -->
+  <div class="modal-bg" id="quickAddServiceModal">
+    <div class="modal">
+      <h3>Add new service</h3>
+      <label>Service code</label>
+      <input id="qs_code" placeholder="SVC-NEW-001">
+      <label>Name</label>
+      <input id="qs_name">
+      <label>Standard rate (₹)</label>
+      <input id="qs_rate" type="number" step="0.01">
+      <label>Tax rate</label>
+      <select id="qs_tax"></select>
+      <div class="modalError" id="qs_error"></div>
+      <div class="actions">
+        <button class="cancel" id="qs_cancel">Cancel</button>
+        <button class="save" id="qs_save">Add service</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app-shell.js"></script>
+  <script src="header-logo.js"></script>
+  <script src="invoice-new.js"></script>
+</body>
+</html>

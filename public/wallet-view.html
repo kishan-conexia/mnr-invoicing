@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Wallet</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f4f5f7; margin: 0; color: #222; }
+  header { background: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e2e2; }
+  header h1 { font-size: 16px; margin: 0; }
+  nav { display: flex; gap: 16px; margin-top: 4px; }
+  nav a { font-size: 13px; color: #1a73e8; text-decoration: none; }
+  .who { font-size: 13px; color: #666; margin-right: 12px; }
+  header button { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  main { padding: 32px; max-width: 800px; margin: 0 auto; }
+  .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  .balanceRow { display: flex; justify-content: space-between; align-items: center; }
+  .balanceRow .name { font-size: 18px; font-weight: 700; }
+  .balanceRow .tierBadge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px; margin-left: 8px; vertical-align: middle; }
+  .tierBadge.DISTRIBUTOR_L1 { background: #dbeaff; color: #1a4fa0; }
+  .tierBadge.DISTRIBUTOR_L2 { background: #e3d9ff; color: #5b3ea6; }
+  .tierBadge.PARTNER { background: #fff4d6; color: #916a00; }
+  .tierBadge.CUSTOMER { background: #d9f5df; color: #14742f; }
+  .balance { font-size: 28px; font-weight: 800; }
+  .balance.negative { color: #a11e1e; }
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
+  .actions button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
+  .btn-primary { background: #1a73e8; color: white; }
+  .btn-secondary { background: #eee; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; font-size: 13px; border-bottom: 1px solid #eee; }
+  th { color: #777; font-weight: 500; font-size: 12px; }
+  .num { text-align: right; }
+  .typeTag { font-size: 11px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+  .typeTag.TOPUP { background: #d9f5df; color: #14742f; }
+  .typeTag.TRANSFER_IN { background: #dbeaff; color: #1a4fa0; }
+  .typeTag.TRANSFER_OUT { background: #fde0e0; color: #a11e1e; }
+  .typeTag.INVOICE_PAYMENT { background: #fff4d6; color: #916a00; }
+  .typeTag.ADJUSTMENT { background: #eee; color: #555; }
+  .empty { color: #999; font-size: 13px; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; }
+  .modal { background: white; padding: 24px; border-radius: 10px; width: 340px; }
+  .modal h3 { margin-top: 0; }
+  .modal label { display: block; font-size: 13px; margin-bottom: 4px; }
+  .modal input, .modal select { width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+  .modal .modalActions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal .modalActions button { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
+  .modal .cancel { background: #eee; }
+  .modal .save { background: #1a73e8; color: white; }
+  .modalError { color: #d33; font-size: 13px; margin-top: 4px; display: none; }
+</style>
+</head>
+<body>
+<main>
+    <div class="card">
+      <div class="balanceRow">
+        <div>
+          <span class="name" id="customerName">Loading…</span>
+          <span class="tierBadge" id="tierBadge"></span>
+        </div>
+        <div class="balance" id="balanceValue">₹0.00</div>
+      </div>
+      <div class="actions">
+        <button class="btn-primary" id="topupBtn">+ Top up</button>
+        <button class="btn-secondary" id="transferBtn">Transfer to child</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0; font-size:14px;">Transaction History</h3>
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th class="num">Balance after</th><th>Notes</th></tr></thead>
+        <tbody id="txnRows"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal-bg" id="topupModal">
+    <div class="modal">
+      <h3>Top up wallet</h3>
+      <label>Amount (₹)</label>
+      <input id="tu_amount" type="number" min="0" step="0.01">
+      <label>Notes (optional)</label>
+      <input id="tu_notes" placeholder="e.g. Received via NEFT">
+      <div class="modalError" id="tu_error"></div>
+      <div class="modalActions">
+        <button class="cancel" id="tu_cancel">Cancel</button>
+        <button class="save" id="tu_save">Top up</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="transferModal">
+    <div class="modal">
+      <h3>Transfer to child</h3>
+      <label>Send to</label>
+      <select id="tr_child"></select>
+      <label>Amount (₹)</label>
+      <input id="tr_amount" type="number" min="0" step="0.01">
+      <label>Notes (optional)</label>
+      <input id="tr_notes">
+      <div class="modalError" id="tr_error"></div>
+      <div class="modalActions">
+        <button class="cancel" id="tr_cancel">Cancel</button>
+        <button class="save" id="tr_save">Transfer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app-shell.js"></script>
+  <script src="header-logo.js"></script>
+  <script src="wallet-view.js"></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Top-up Requests</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f4f5f7; margin: 0; color: #222; }
+  main { padding: 32px; max-width: 950px; margin: 0 auto; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .toolbar h2 { font-size: 18px; margin: 0; }
+  .filterTabs { display: flex; gap: 8px; }
+  .filterTabs button { background: #eee; border: none; border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+  .filterTabs button.active { background: #1a73e8; color: white; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  th, td { text-align: left; padding: 10px 14px; font-size: 14px; border-bottom: 1px solid #eee; }
+  th { background: #fafafa; color: #555; font-weight: 500; }
+  .num { text-align: right; }
+  .statusTag { font-size: 11px; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
+  .statusTag.PENDING { background: #fff4d6; color: #916a00; }
+  .statusTag.APPROVED { background: #d9f5df; color: #14742f; }
+  .statusTag.REJECTED { background: #fde0e0; color: #a11e1e; }
+  .actionBtn { padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; margin-right: 6px; }
+  .approveBtn { background: #14742f; color: white; }
+  .rejectBtn { background: #eee; color: #a11e1e; }
+  .empty { color: #999; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+    <div class="toolbar">
+      <h2>Wallet Top-up Requests</h2>
+      <div class="filterTabs">
+        <button data-status="PENDING" class="active">Pending</button>
+        <button data-status="">All</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Requested</th><th>Customer</th><th>Tier</th><th class="num">Amount (₹)</th><th>Notes</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody id="requestRows"></tbody>
+    </table>
+  </main>
+
+  <script src="app-shell.js"></script>
+  <script src="header-logo.js"></script>
+  <script src="topup-requests.js"></script>
+</body>
+</html>

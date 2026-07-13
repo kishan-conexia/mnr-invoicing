@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Invoice</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f4f5f7; margin: 0; color: #222; }
+  header { background: #0b0d12; padding: 14px 32px; display: flex; align-items: center; gap: 10px; }
+  header img { height: 26px; width: auto; border-radius: 6px; display: none; }
+  header .name { color: #fff; font-size: 14px; font-weight: 600; }
+  main { padding: 32px; max-width: 850px; margin: 0 auto; }
+  .toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .printBtn { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  .sheet { background: white; border: 1px solid #ddd; padding: 32px; font-size: 13px; line-height: 1.5; }
+
+  .letterhead { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 16px; }
+  .letterhead .companyName { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+  .letterhead .companyAddr { color: #444; font-size: 12px; line-height: 1.5; }
+  .letterhead .docTitle { font-size: 22px; font-weight: 700; text-align: right; align-self: flex-start; }
+
+  .metaGrid { display: flex; justify-content: space-between; border: 1px solid #ddd; margin-bottom: 0; }
+  .metaGrid .col { padding: 10px 14px; flex: 1; }
+  .metaGrid .col:first-child { border-right: 1px solid #ddd; }
+  .metaGrid table td { padding: 1px 0; font-size: 12px; }
+  .metaGrid table td.k { color: #555; width: 90px; }
+
+  .partiesGrid { display: flex; border: 1px solid #ddd; border-top: none; margin-bottom: 16px; }
+  .partiesGrid .col { padding: 10px 14px; flex: 1; }
+  .partiesGrid .col:first-child { border-right: 1px solid #ddd; }
+  .partiesGrid .label { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
+  .partiesGrid .name { font-weight: 700; }
+
+  table.items { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+  table.items th, table.items td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; }
+  table.items th { background: #fafafa; font-weight: 600; }
+  table.items td.num, table.items th.num { text-align: right; }
+
+  .bottomGrid { display: flex; justify-content: space-between; border: 1px solid #ddd; border-top: none; }
+  .bottomGrid .left { flex: 1; padding: 10px 14px; font-size: 12px; }
+  .bottomGrid .right { width: 260px; border-left: 1px solid #ddd; }
+  .bottomGrid .right table { width: 100%; border-collapse: collapse; }
+  .bottomGrid .right td { padding: 5px 12px; font-size: 12px; }
+  .bottomGrid .right tr.total td { font-weight: 700; font-size: 13px; border-top: 1px solid #ddd; }
+  .bottomGrid .right td.num { text-align: right; }
+
+  .wordsBox { padding: 10px 0; font-size: 12px; }
+  .wordsBox b { display: block; margin-bottom: 2px; }
+
+  .footerBlock { margin-top: 20px; font-size: 11.5px; color: #333; }
+  .footerBlock h4 { font-size: 12px; margin: 14px 0 4px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; background: #fff4d6; color: #916a00; margin-left: 10px; vertical-align: middle; }
+
+  @media print {
+    header, .toolbar { display: none; }
+    body { background: white; }
+    .sheet { border: none; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <img id="companyLogo" alt="logo">
+    <span class="name" id="companyName">Invoice</span>
+  </header>
+  <main>
+    <div class="toolbar"><button class="printBtn" onclick="window.print()">Print / Save as PDF</button></div>
+    <div class="sheet" id="sheet">Loading…</div>
+  </main>
+  <script src="public-invoice-view.js"></script>
+</body>
+</html>

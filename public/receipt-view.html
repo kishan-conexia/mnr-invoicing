@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Receipt</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f4f5f7; margin: 0; color: #222; }
+  header { background: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e2e2; }
+  header h1 { font-size: 16px; margin: 0; }
+  nav { display: flex; gap: 16px; margin-top: 4px; }
+  nav a { font-size: 13px; color: #1a73e8; text-decoration: none; }
+  .who { font-size: 13px; color: #666; margin-right: 12px; }
+  header button, .printBtn { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  main { padding: 32px; max-width: 700px; margin: 0 auto; }
+  .toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .sheet { background: white; border: 1px solid #ddd; padding: 32px; font-size: 13px; line-height: 1.6; }
+  .letterhead { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 16px; }
+  .letterhead .companyName { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+  .letterhead .companyAddr { color: #444; font-size: 12px; line-height: 1.5; }
+  .letterhead .docTitle { font-size: 20px; font-weight: 700; text-align: right; }
+  .metaRow { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th, td { text-align: left; padding: 8px; font-size: 12px; border: 1px solid #ddd; }
+  th { background: #fafafa; font-weight: 600; }
+  .num { text-align: right; }
+  .summary { width: 280px; margin-left: auto; }
+  .summary div { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+  .summary .total { font-weight: 700; font-size: 15px; border-top: 1px solid #ddd; margin-top: 6px; padding-top: 8px; }
+  .wordsBox { font-size: 12px; margin: 16px 0; }
+  .wordsBox b { display: block; margin-bottom: 2px; }
+  @media print { header, .toolbar { display: none; } body { background: white; } .sheet { border: none; } }
+</style>
+</head>
+<body>
+<main>
+    <div class="toolbar"><button class="printBtn" onclick="window.print()">Print / Save as PDF</button></div>
+    <div class="sheet" id="sheet">Loading…</div>
+  </main>
+  <script src="app-shell.js"></script>
+  <script src="header-logo.js"></script>
+  <script src="receipt-view.js"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Partner Portal</title>
+<link rel="stylesheet" href="portal-theme.css">
+</head>
+<body>
+<main>
+    <div class="grid2">
+      <div class="card">
+        <h3>Your wallet balance</h3>
+        <div class="balanceValue" id="balanceValue">₹0.00</div>
+        <span class="tierBadge" id="tierBadge"></span>
+      </div>
+      <div class="card">
+        <h3>Outstanding across your invoices</h3>
+        <div class="balanceValue" id="outstandingValue">₹0.00</div>
+        <div style="font-size:12px; color:#999; margin-top:4px;" id="invoiceCountNote"></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Your downline</h3>
+        <div class="balanceValue" id="downlineCount">0</div>
+        <div style="margin-top:14px;"><a class="btn-secondary" href="/portal-customers.html">View / add customers →</a></div>
+      </div>
+      <div class="card">
+        <h3>Quick actions</h3>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+          <a class="btn-primary" href="/portal-wallet.html">Request a top-up</a>
+          <a class="btn-secondary" href="/portal-invoice-new.html">Create an invoice</a>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="portal-nav.js"></script>
+  <script src="portal-common.js"></script>
+  <script src="portal-home.js"></script>
+</body>
+</html>

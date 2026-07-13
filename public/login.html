@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Login</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #0b0d12; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.35); width: 320px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { color: #666; font-size: 13px; margin: 0 0 24px; }
+  label { display: block; font-size: 13px; margin-bottom: 4px; color: #333; }
+  input { width: 100%; padding: 10px; margin-bottom: 16px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+  button { width: 100%; padding: 10px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #1558b0; }
+  #error { color: #d33; font-size: 13px; margin-top: 12px; display: none; }
+</style>
+</head>
+<body>
+  <form class="card" id="loginForm">
+    <img id="loginLogo" alt="Company logo" style="display:none; height:44px; width:auto; margin-bottom:14px; border-radius:4px;">
+    <h1>MNR Broadband Services</h1>
+    <p class="sub">Sign in to the invoicing system</p>
+    <label for="email">Email</label>
+    <input type="email" id="email" value="admin@mnrbroadband.example" required>
+    <label for="password">Password</label>
+    <input type="password" id="password" value="ChangeMe@123" required>
+    <button type="submit">Sign in</button>
+    <div id="error"></div>
+  </form>
+  <script src="login.js"></script>
+</body>
+</html>

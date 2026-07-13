@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MNR Broadband — Settings</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f4f5f7; margin: 0; color: #222; }
+  header { background: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e2e2; }
+  header h1 { font-size: 16px; margin: 0; }
+  nav { display: flex; gap: 16px; margin-top: 4px; }
+  nav a { font-size: 13px; color: #1a73e8; text-decoration: none; }
+  .who { font-size: 13px; color: #666; margin-right: 12px; }
+  header button { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  main { padding: 32px; max-width: 750px; margin: 0 auto; }
+  .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; margin: 0 0 16px; }
+  .row { display: flex; gap: 16px; margin-bottom: 14px; }
+  .row > div { flex: 1; }
+  label { display: block; font-size: 13px; margin-bottom: 4px; color: #444; }
+  input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
+  textarea { resize: vertical; min-height: 70px; }
+
+  .logoRow { display: flex; align-items: center; gap: 20px; }
+  .logoPreview { width: 100px; height: 100px; border: 1px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fafafa; flex-shrink: 0; }
+  .logoPreview img { max-width: 100%; max-height: 100%; }
+  .logoPreview .placeholder { font-size: 11px; color: #999; text-align: center; padding: 8px; }
+  .uploadBtn { background: #eee; border: none; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px; }
+  .fileHint { font-size: 11px; color: #999; margin-top: 6px; }
+
+  #saveBtn { background: #1a73e8; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 14px; }
+  .statusMsg { font-size: 13px; margin-top: 10px; display: none; }
+  .statusMsg.success { color: #14742f; }
+  .statusMsg.error { color: #d33; }
+  .fieldError { color: #d33; font-size: 12px; margin: -10px 0 12px; display: none; }
+  input.invalid { border-color: #d33; background: #fff6f6; }
+</style>
+</head>
+<body>
+<main>
+    <div class="card">
+      <h2>Company Logo</h2>
+      <div class="logoRow">
+        <div class="logoPreview" id="logoPreview"><span class="placeholder">No logo yet</span></div>
+        <div>
+          <input type="file" id="logoInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;">
+          <button class="uploadBtn" id="uploadBtn">Upload logo</button>
+          <div class="fileHint">PNG, JPEG, WEBP, or SVG — up to 3MB. Shows on invoices and receipts.</div>
+        </div>
+      </div>
+      <div class="statusMsg" id="logoStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Company Profile</h2>
+      <div class="row">
+        <div><label>Display name</label><input id="f_name"></div>
+        <div><label>Legal name</label><input id="f_legalName"></div>
+      </div>
+      <div class="row">
+        <div><label>GSTIN</label><input id="f_gstin" maxlength="15"></div>
+        <div><label>PAN</label><input id="f_pan" maxlength="10"></div>
+        <div><label>CIN (optional)</label><input id="f_cin"></div>
+      </div>
+      <div class="fieldError" id="companyGstinError"></div>
+      <label>Registered address (street / building)</label>
+      <textarea id="f_address" style="min-height:50px;"></textarea>
+      <div class="row" style="margin-top:14px;">
+        <div><label>City</label><input id="f_city"></div>
+        <div><label>State (required for GST)</label><select id="f_companyState"></select></div>
+      </div>
+      <div class="row">
+        <div><label>Country</label><input id="f_country" value="India"></div>
+        <div>
+          <label>Pincode</label>
+          <input id="f_pincode" maxlength="6" placeholder="411001">
+          <div class="fieldError" id="pincodeError"></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px;">
+        <div><label>Contact email</label><input id="f_email" type="email"></div>
+        <div><label>Contact phone</label><input id="f_phone"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Bank Details</h2>
+      <p style="font-size:12px; color:#777; margin-top:-8px;">Shown on invoices under "Payment via wire transfer or cheque."</p>
+      <div class="row">
+        <div><label>Account name</label><input id="f_bankAccountName"></div>
+        <div><label>Account number</label><input id="f_bankAccountNumber"></div>
+      </div>
+      <div class="row">
+        <div><label>Bank name</label><input id="f_bankName"></div>
+        <div><label>IFSC code</label><input id="f_bankIfsc"></div>
+        <div><label>Branch</label><input id="f_bankBranch"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Terms &amp; Conditions</h2>
+      <p style="font-size:12px; color:#777; margin-top:-8px;">Printed on every invoice.</p>
+      <textarea id="f_terms" style="min-height:100px;"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Payment Gateway (Razorpay)</h2>
+      <p style="font-size:12px; color:#777; margin-top:-8px;">Lets Distributors, Partners, and Customers top up their wallet online in the Partner Portal. Get these keys from your Razorpay dashboard.</p>
+      <div class="row">
+        <div><label>Key ID</label><input id="f_razorpayKeyId" placeholder="rzp_test_xxxxxxxxxxxx"></div>
+        <div>
+          <label>Key Secret <span id="secretHint" style="font-weight:400; color:#888; font-size:11px;"></span></label>
+          <input id="f_razorpayKeySecret" type="password" placeholder="Leave blank to keep unchanged" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="statusMsg" id="gatewayStatus" style="display:block;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Email (Resend)</h2>
+      <p style="font-size:12px; color:#777; margin-top:-8px;">Lets the app send invoices by email, from any of the admin or portal invoice lists. Get an API key from resend.com and verify a sending domain there first.</p>
+      <div class="row">
+        <div>
+          <label>API Key <span id="resendSecretHint" style="font-weight:400; color:#888; font-size:11px;"></span></label>
+          <input id="f_resendApiKey" type="password" placeholder="re_xxxxxxxxxxxxxxxx" autocomplete="new-password">
+        </div>
+        <div><label>"From" email (must be on a domain verified in Resend)</label><input id="f_resendFromEmail" type="email" placeholder="invoices@yourdomain.com"></div>
+      </div>
+      <label>"From" name (optional — defaults to company name)</label>
+      <input id="f_resendFromName" style="max-width:320px;">
+      <div class="statusMsg" id="emailStatus" style="display:block;"></div>
+    </div>
+
+    <div style="text-align:right;">
+      <div class="statusMsg" id="saveStatus"></div>
+      <button id="saveBtn">Save settings</button>
+    </div>
+  </main>
+  <script src="app-shell.js"></script>
+  <script src="header-logo.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
