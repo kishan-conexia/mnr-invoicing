@@ -16,11 +16,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-change-me';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(process.cwd(), 'public')));
 
 // Logos are saved under public/uploads/logos so express.static above serves
 // them directly at /uploads/logos/<file> — no separate route needed.
-const uploadsDir = path.join(__dirname, '..', 'public', 'uploads', 'logos');
+const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'logos');
 fs.mkdirSync(uploadsDir, { recursive: true });
 const logoUpload = multer({
   storage: multer.diskStorage({
@@ -1133,7 +1133,7 @@ app.post('/api/company/logo', requireAuth, (req: Request, res: Response) => {
 
     // Remove the old logo file so uploads don't pile up indefinitely
     if (company.logoUrl) {
-      const oldPath = path.join(__dirname, '..', 'public', company.logoUrl.replace(/^\//, ''));
+      const oldPath = path.join(process.cwd(), 'public', company.logoUrl.replace(/^\//, ''));
       fs.unlink(oldPath, () => {});
     }
 
