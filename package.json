@@ -5,7 +5,7 @@
   "description": "Phase 4: database layer for MNR Broadband Services invoicing & billing system",
   "scripts": {
     "build": "tsc && prisma generate",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
