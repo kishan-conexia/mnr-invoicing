@@ -30,7 +30,11 @@ const logoUpload = multer({
   limits: { fileSize: 3 * 1024 * 1024 }, // 3MB
   fileFilter: (_req, file, cb) => {
     const ok = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'].includes(file.mimetype);
-    cb(ok ? null : new Error('Logo must be a PNG, JPEG, WEBP, or SVG image'), ok);
+    if (ok) {
+      cb(null, true);
+    } else {
+      cb(new Error('Logo must be a PNG, JPEG, WEBP, or SVG image'));
+    }
   },
 });
 
