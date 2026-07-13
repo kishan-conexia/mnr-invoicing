@@ -10,5 +10,5 @@
     "resolveJsonModule": true,
     "outDir": "dist"
   },
-  "include": ["prisma/**/*.ts"]
+  "include": ["src/**/*.ts", "prisma/**/*.ts"]
 }
