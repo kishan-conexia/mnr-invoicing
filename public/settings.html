@@ -131,6 +131,34 @@
       <div class="statusMsg" id="emailStatus" style="display:block;"></div>
     </div>
 
+    <div style="border-top:1px solid #e2e2e2; padding-top:24px;">
+      <h2>🧾 GST E-Invoicing (Masters India)</h2>
+      <p style="font-size:12px; color:#777; margin-top:-8px;">
+        Mandatory for businesses with annual turnover &gt; ₹5 Crore. When enabled, a "Generate IRN" button will
+        appear on every finalized GST invoice. Get API credentials from
+        <a href="https://mastersindia.co" target="_blank" style="color:#1a73e8;">mastersindia.co</a>.
+      </p>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <input type="checkbox" id="f_eInvoicingEnabled" style="width:16px;height:16px;cursor:pointer;">
+        <label for="f_eInvoicingEnabled" style="cursor:pointer; font-weight:600;">Enable E-Invoicing (IRN generation via IRP)</label>
+      </div>
+      <div class="row">
+        <div>
+          <label>Masters India API Key</label>
+          <input id="f_irpApiKey" type="text" placeholder="Your Masters India client API key">
+        </div>
+        <div>
+          <label>IRP Username (GSTIN username)</label>
+          <input id="f_irpUsername" type="text" placeholder="Your GSTN portal username">
+        </div>
+      </div>
+      <div>
+        <label>IRP Password <span id="irpPasswordHint" style="font-weight:400; color:#888; font-size:11px;"></span></label>
+        <input id="f_irpPassword" type="password" placeholder="Your GSTN portal password" autocomplete="new-password" style="max-width:320px;">
+      </div>
+      <div class="statusMsg" id="einvoiceStatus" style="display:block; margin-top:8px;"></div>
+    </div>
+
     <div style="text-align:right;">
       <div class="statusMsg" id="saveStatus"></div>
       <button id="saveBtn">Save settings</button>

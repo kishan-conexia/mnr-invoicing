@@ -17,6 +17,14 @@ enum DocumentStatus {
   CANCELLED
 }
 
+enum EInvoiceStatus {
+  NOT_APPLICABLE // e-invoicing disabled or GST not applicable
+  PENDING        // finalized but IRN not yet generated
+  GENERATED      // IRN successfully obtained from IRP
+  CANCELLED      // IRN cancelled at IRP
+  FAILED         // IRP returned an error
+}
+
 enum InvoiceStatus {
   DRAFT
   FINALIZED
@@ -126,6 +134,11 @@ model Company {
   resendApiKey      String? @map("resend_api_key")
   resendFromEmail   String? @map("resend_from_email")
   resendFromName    String? @map("resend_from_name")
+  // E-Invoicing configuration (Masters India GSP)
+  eInvoicingEnabled Boolean @default(false) @map("e_invoicing_enabled")
+  irpApiKey         String? @map("irp_api_key")       // Masters India API key
+  irpUsername       String? @map("irp_username")      // GSTIN username for IRP
+  irpPassword       String? @map("irp_password")      // encrypted password for IRP
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -518,6 +531,14 @@ model Invoice {
   cancelledAt       DateTime? @map("cancelled_at")
   cancelledById     String?  @map("cancelled_by_id")
   finalizedAt       DateTime? @map("finalized_at")
+  // E-Invoicing (IRP/IRN) fields
+  eInvoiceStatus    EInvoiceStatus @default(NOT_APPLICABLE) @map("e_invoice_status")
+  irn               String?  @unique @map("irn")             // 64-char hash from IRP
+  irnAckNumber      String?  @map("irn_ack_number")          // Acknowledgement number
+  irnAckDate        DateTime? @map("irn_ack_date")           // Acknowledgement timestamp
+  eInvoiceQrCode    String?  @map("e_invoice_qr_code")       // Base64 QR string from IRP
+  irnCancelledAt    DateTime? @map("irn_cancelled_at")
+  irnCancelReason   String?  @map("irn_cancel_reason")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 

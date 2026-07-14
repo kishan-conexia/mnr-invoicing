@@ -87,6 +87,13 @@ async function load() {
   const isIntra = inv.taxType === 'CGST_SGST';
   const bank = company.bankDetails || {};
 
+  // Load e-invoice status (IRN, QR Code, etc.)
+  let einv = { eInvoiceStatus: inv.eInvoiceStatus || 'NOT_APPLICABLE', irn: null, irnAckNumber: null, irnAckDate: null, eInvoiceQrCode: null };
+  try {
+    const einvRes = await fetch(`/api/invoices/${id}/einvoice-status`, { headers: { Authorization: `Bearer ${token}` } });
+    if (einvRes.ok) einv = await einvRes.json();
+  } catch (e) { /* silent fail - non-critical */ }
+
   document.getElementById('mailBtn').addEventListener('click', async () => {
     const email = prompt(`Send invoice ${inv.invoiceNumber} to which email address?`, '');
     if (!email) return;
@@ -109,6 +116,34 @@ async function load() {
     const message = `Invoice ${inv.invoiceNumber} for ₹${formatNum(inv.totalValue)}. View it here: ${data.url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   });
+
+  // Generate IRN button (only shown when e-invoicing is enabled and IRN is pending/failed)
+  const irnBtn = document.getElementById('irnBtn');
+  if (irnBtn) {
+    if (einv.eInvoiceStatus === 'PENDING' || einv.eInvoiceStatus === 'FAILED') {
+      irnBtn.style.display = 'inline-block';
+      irnBtn.addEventListener('click', async () => {
+        if (!confirm('Generate IRN from the Government IRP for this invoice?')) return;
+        irnBtn.disabled = true;
+        irnBtn.textContent = 'Generating...';
+        const res = await fetch(`/api/invoices/${id}/generate-irn`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`IRN generated successfully!\nIRN: ${data.irn}\nAck No: ${data.ackNumber}`);
+          window.location.reload();
+        } else {
+          alert(`Failed: ${data.error}`);
+          irnBtn.disabled = false;
+          irnBtn.textContent = 'Generate IRN';
+        }
+      });
+    } else {
+      irnBtn.style.display = 'none';
+    }
+  }
 
   const itemHeaderCols = isIntra
     ? `<th>#</th><th>Item &amp; Description</th><th class="num">Qty</th><th class="num">Rate</th><th colspan="2">CGST</th><th colspan="2">SGST</th><th class="num">Amount</th>`
@@ -229,14 +264,31 @@ async function load() {
       ` : ''}
     </div>
 
-    <div class="irnBlock">
-      <div class="qrPlaceholder">QR / IRN<br>not yet<br>integrated</div>
-      <div>
-        e-Invoicing (IRN/QR from the Government portal) isn't wired up yet — that's a separate
-        compliance integration to add later if MNR Broadband is above the e-invoicing turnover threshold.
-      </div>
-    </div>
+    <!-- E-Invoicing block: IRN, Ack, QR code -->
+    ${buildIrnBlock(einv)}
   `;
+
+  // Cancel IRN button handler
+  const cancelIrnBtn = document.getElementById('cancelIrnBtn');
+  if (cancelIrnBtn) {
+    cancelIrnBtn.addEventListener('click', async () => {
+      const reasons = ['1 — Duplicate', '2 — Data Entry Mistake', '3 — Order Cancelled', '4 — Other'];
+      const chosen = prompt(`Select cancel reason (enter number 1-4):\n${reasons.join('\n')}`);
+      const code = parseInt(chosen);
+      if (!code || code < 1 || code > 4) { alert('Invalid reason code. Enter 1, 2, 3, or 4.'); return; }
+      const reasonText = prompt('Briefly describe the reason for cancellation:');
+      if (!reasonText) return;
+      if (!confirm('Cancel this IRN at the Government IRP? This cannot be undone.')) return;
+      const res = await fetch(`/api/invoices/${id}/cancel-irn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ cancelReasonCode: code, cancelReason: reasonText }),
+      });
+      const data = await res.json();
+      alert(res.ok ? 'IRN cancelled at IRP.' : (data.error || 'Cancellation failed'));
+      if (res.ok) window.location.reload();
+    });
+  }
 
   if (params.get('download') === '1') {
     setTimeout(() => window.print(), 300);
@@ -244,3 +296,45 @@ async function load() {
 }
 
 load();
+
+// ── E-Invoice block builder ─────────────────────────────────────────────
+// Renders the IRN / QR Code section at the bottom of the invoice.
+// Mandatory on printed invoices when e-invoicing is active per GSTN rules.
+function buildIrnBlock(einv) {
+  const status = einv.eInvoiceStatus || 'NOT_APPLICABLE';
+  if (status === 'NOT_APPLICABLE') return '';
+
+  const statusColors = { PENDING: '#fff4d6', GENERATED: '#e6f4ea', CANCELLED: '#fce8e6', FAILED: '#fce8e6' };
+  const statusLabels = { PENDING: 'Pending IRN Generation', GENERATED: 'IRN Generated ✓', CANCELLED: 'IRN Cancelled', FAILED: 'IRN Generation Failed' };
+
+  const bgColor = statusColors[status] || '#f5f5f5';
+  const label = statusLabels[status] || status;
+
+  let qrHtml = '';
+  if (einv.eInvoiceQrCode) {
+    qrHtml = `<img src="data:image/png;base64,${einv.eInvoiceQrCode}" alt="E-Invoice QR Code" style="width:80px;height:80px;flex-shrink:0;">`;
+  } else {
+    qrHtml = `<div style="width:80px;height:80px;border:1px dashed #bbb;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;text-align:center;flex-shrink:0;">QR Code</div>`;
+  }
+
+  const cancelBtn = (status === 'GENERATED')
+    ? `<button id="cancelIrnBtn" style="margin-top:8px;background:none;border:1px solid #c62828;color:#c62828;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;">Cancel IRN</button>`
+    : '';
+
+  const irnLine = einv.irn ? `<div style="font-family:monospace;font-size:10px;word-break:break-all;color:#333;margin-top:2px;">${einv.irn}</div>` : '';
+  const ackLine = einv.irnAckNumber
+    ? `<div>Ack No: <b>${einv.irnAckNumber}</b>&nbsp;&nbsp;Ack Date: <b>${einv.irnAckDate ? new Date(einv.irnAckDate).toLocaleString('en-IN') : ''}</b></div>`
+    : '';
+
+  return `
+    <div style="margin-top:16px;border-top:1px solid #ddd;padding-top:12px;background:${bgColor};padding:10px 14px;border-radius:6px;display:flex;gap:12px;align-items:flex-start;">
+      ${qrHtml}
+      <div style="flex:1;font-size:11px;color:#333;">
+        <div style="font-weight:700;margin-bottom:4px;">e-Invoice Status: ${label}</div>
+        ${ackLine}
+        ${irnLine}
+        ${cancelBtn}
+      </div>
+    </div>
+  `;
+}

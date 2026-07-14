@@ -104,6 +104,16 @@ async function loadCompany() {
     ? 'Email sending is enabled.'
     : 'Email sending is disabled until an API Key and "From" email are both set.';
 
+  // E-invoicing
+  document.getElementById('f_eInvoicingEnabled').checked = !!c.eInvoicingEnabled;
+  document.getElementById('f_irpApiKey').value = c.irpApiKey || '';
+  document.getElementById('f_irpUsername').value = c.irpUsername || '';
+  document.getElementById('irpPasswordHint').textContent = c.irpPasswordSet ? '(already set — leave blank to keep it)' : '(not set yet)';
+  document.getElementById('einvoiceStatus').className = 'statusMsg ' + (c.eInvoicingEnabled ? 'success' : '');
+  document.getElementById('einvoiceStatus').textContent = c.eInvoicingEnabled
+    ? 'E-Invoicing is ENABLED. IRN will be generated for all GST invoices.'
+    : 'E-Invoicing is disabled. Enable it when your company exceeds ₹5 Crore annual turnover.';
+
   renderLogo(c.logoUrl);
 }
 
@@ -188,6 +198,13 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     ...(document.getElementById('f_resendApiKey').value
       ? { resendApiKey: document.getElementById('f_resendApiKey').value }
       : {}),
+    // E-invoicing
+    eInvoicingEnabled: document.getElementById('f_eInvoicingEnabled').checked,
+    irpApiKey: document.getElementById('f_irpApiKey').value || undefined,
+    irpUsername: document.getElementById('f_irpUsername').value || undefined,
+    ...(document.getElementById('f_irpPassword').value
+      ? { irpPassword: document.getElementById('f_irpPassword').value }
+      : {}),
   };
 
   const res = await fetch('/api/company', {
@@ -203,6 +220,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   }
   document.getElementById('f_razorpayKeySecret').value = '';
   document.getElementById('f_resendApiKey').value = '';
+  document.getElementById('f_irpPassword').value = '';
   showStatus(statusEl, 'Settings saved.', false);
   loadCompany();
 });

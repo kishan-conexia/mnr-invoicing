@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
+import { generateIrn, cancelIrn } from './einvoice';
 
 const prisma = new PrismaClient();
 const app = express();
@@ -1035,6 +1036,11 @@ app.post('/api/invoices', requireAuth, async (req: Request, res: Response) => {
   const taxType = isIntraState ? 'CGST_SGST' : 'IGST';
   const totals = calculateInvoiceTotals(items, isIntraState);
 
+  // Decide the initial e-invoice status based on whether:
+  // (a) company has e-invoicing enabled, AND (b) invoice has GST > 0
+  const hasTax = totals.cgstAmount + totals.sgstAmount + totals.igstAmount > 0;
+  const eInvoiceStatus = (company.eInvoicingEnabled && hasTax) ? 'PENDING' : 'NOT_APPLICABLE';
+
   const invoice = await prisma.$transaction(async (tx) => {
     const invoiceNumber = await nextDocumentNumber(tx, company.id, financialYear.id, financialYear.label, 'INVOICE');
     return tx.invoice.create({
@@ -1055,6 +1061,7 @@ app.post('/api/invoices', requireAuth, async (req: Request, res: Response) => {
         totalValue: totals.totalValue,
         status: 'FINALIZED',
         finalizedAt: new Date(),
+        eInvoiceStatus: eInvoiceStatus as any,
         shareToken: crypto.randomBytes(16).toString('hex'),
         items: { create: totals.lineItems },
       },
@@ -1063,6 +1070,58 @@ app.post('/api/invoices', requireAuth, async (req: Request, res: Response) => {
   });
 
   res.status(201).json(invoice);
+});
+
+// ── E-Invoicing Routes ─────────────────────────────────────────────────────
+
+// Generate IRN for a finalized invoice (calls Masters India GSP → IRP)
+app.post('/api/invoices/:id/generate-irn', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const result = await generateIrn(req.params.id);
+    res.json({
+      success: true,
+      irn: result.irn,
+      ackNumber: result.ackNumber,
+      ackDate: result.ackDate,
+      qrCode: result.qrCode,
+    });
+  } catch (err: any) {
+    console.error('generate-irn failed:', err);
+    res.status(400).json({ error: err.message || 'IRN generation failed' });
+  }
+});
+
+// Get current e-invoice status for an invoice
+app.get('/api/invoices/:id/einvoice-status', requireAuth, async (req: Request, res: Response) => {
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: req.params.id },
+    select: {
+      id: true, eInvoiceStatus: true, irn: true,
+      irnAckNumber: true, irnAckDate: true,
+      eInvoiceQrCode: true, irnCancelledAt: true, irnCancelReason: true,
+    },
+  });
+  if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+  res.json(invoice);
+});
+
+// Cancel an IRN (only within 24 hours of generation)
+// cancelReasonCode: 1=Duplicate, 2=Data Entry Mistake, 3=Order Cancelled, 4=Other
+app.post('/api/invoices/:id/cancel-irn', requireAuth, async (req: Request, res: Response) => {
+  const { cancelReasonCode, cancelReason } = req.body ?? {};
+  if (!cancelReasonCode || !cancelReason) {
+    return res.status(400).json({ error: 'cancelReasonCode (1-4) and cancelReason text are required' });
+  }
+  if (![1, 2, 3, 4].includes(Number(cancelReasonCode))) {
+    return res.status(400).json({ error: 'cancelReasonCode must be 1 (Duplicate), 2 (Data Entry Mistake), 3 (Order Cancelled), or 4 (Other)' });
+  }
+  try {
+    await cancelIrn(req.params.id, Number(cancelReasonCode) as 1 | 2 | 3 | 4, cancelReason);
+    res.json({ success: true, message: 'IRN cancelled at IRP successfully' });
+  } catch (err: any) {
+    console.error('cancel-irn failed:', err);
+    res.status(400).json({ error: err.message || 'IRN cancellation failed' });
+  }
 });
 
 // Basic company info — used by the frontend to show intra vs inter-state tax hints
@@ -1118,9 +1177,15 @@ app.patch('/api/company', requireAuth, async (req: Request, res: Response) => {
       resendFromEmail: resendFromEmail !== undefined ? resendFromEmail : undefined,
       resendFromName: resendFromName !== undefined ? resendFromName : undefined,
       termsAndConditions: termsAndConditions !== undefined ? termsAndConditions : undefined,
+      // E-invoicing config
+      eInvoicingEnabled: req.body.eInvoicingEnabled !== undefined ? req.body.eInvoicingEnabled : undefined,
+      irpApiKey: req.body.irpApiKey !== undefined ? req.body.irpApiKey : undefined,
+      irpUsername: req.body.irpUsername !== undefined ? req.body.irpUsername : undefined,
+      irpPassword: req.body.irpPassword !== undefined ? req.body.irpPassword : undefined,
     },
   });
-  res.json(updated);
+  const { razorpayKeySecret: _rks, resendApiKey: _rak, irpPassword: _irpPwd, ...safeUpdated } = updated;
+  res.json({ ...safeUpdated, razorpayKeySecretSet: !!updated.razorpayKeySecret, resendApiKeySet: !!updated.resendApiKey, irpPasswordSet: !!updated.irpPassword });
 });
 
 app.post('/api/company/logo', requireAuth, (req: Request, res: Response) => {
