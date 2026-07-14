@@ -272,10 +272,14 @@ export async function generateIrn(invoiceId: string): Promise<{
     };
   }
 
+  const irpApiKey = company.irpApiKey || process.env.MI_CLIENT_ID;
+  const irpUsername = company.irpUsername || process.env.MI_USERNAME;
+  const irpPassword = company.irpPassword || process.env.MI_PASSWORD;
+
   // Validate company e-invoicing config
   if (!company.eInvoicingEnabled) throw new Error('E-Invoicing is not enabled for this company');
-  if (!company.irpApiKey) throw new Error('Masters India API key not configured in Settings');
-  if (!company.irpUsername || !company.irpPassword) {
+  if (!irpApiKey) throw new Error('Masters India API key not configured in Settings');
+  if (!irpUsername || !irpPassword) {
     throw new Error('IRP username/password not configured in Settings');
   }
   if (!company.gstin) throw new Error('Company GSTIN is required for e-invoicing');
@@ -294,7 +298,7 @@ export async function generateIrn(invoiceId: string): Promise<{
 
   let authToken: string;
   try {
-    authToken = await getMiToken(company.irpApiKey, company.irpUsername, company.irpPassword);
+    authToken = await getMiToken(irpApiKey, irpUsername, irpPassword);
   } catch (err: any) {
     await prisma.invoice.update({ where: { id: invoiceId }, data: { eInvoiceStatus: 'FAILED' } });
     throw new Error(`Authentication failed: ${err.message}`);
@@ -376,7 +380,11 @@ export async function cancelIrn(
   }
 
   const company = invoice.company;
-  if (!company.irpApiKey || !company.irpUsername || !company.irpPassword || !company.gstin) {
+  const irpApiKey = company.irpApiKey || process.env.MI_CLIENT_ID;
+  const irpUsername = company.irpUsername || process.env.MI_USERNAME;
+  const irpPassword = company.irpPassword || process.env.MI_PASSWORD;
+
+  if (!irpApiKey || !irpUsername || !irpPassword || !company.gstin) {
     throw new Error('IRP credentials not configured');
   }
 
@@ -389,7 +397,7 @@ export async function cancelIrn(
     }
   }
 
-  const authToken = await getMiToken(company.irpApiKey, company.irpUsername, company.irpPassword);
+  const authToken = await getMiToken(irpApiKey, irpUsername, irpPassword);
 
   const cancelPayload = {
     Irn: invoice.irn,

@@ -268,6 +268,17 @@ async function load() {
     ${buildIrnBlock(einv)}
   `;
 
+  if (einv.eInvoiceQrCode && !einv.eInvoiceQrCode.startsWith('iVBORw')) {
+    setTimeout(() => {
+      const canvas = document.getElementById('qrCanvas');
+      if (canvas && typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(canvas, einv.eInvoiceQrCode, { width: 80, margin: 1 }, function (error) {
+          if (error) console.error('QR Code error:', error);
+        });
+      }
+    }, 50);
+  }
+
   // Cancel IRN button handler
   const cancelIrnBtn = document.getElementById('cancelIrnBtn');
   if (cancelIrnBtn) {
@@ -312,7 +323,11 @@ function buildIrnBlock(einv) {
 
   let qrHtml = '';
   if (einv.eInvoiceQrCode) {
-    qrHtml = `<img src="data:image/png;base64,${einv.eInvoiceQrCode}" alt="E-Invoice QR Code" style="width:80px;height:80px;flex-shrink:0;">`;
+    if (einv.eInvoiceQrCode.startsWith('iVBORw')) {
+      qrHtml = `<img src="data:image/png;base64,${einv.eInvoiceQrCode}" alt="E-Invoice QR Code" style="width:80px;height:80px;flex-shrink:0;">`;
+    } else {
+      qrHtml = `<canvas id="qrCanvas" style="width:80px;height:80px;flex-shrink:0;"></canvas>`;
+    }
   } else {
     qrHtml = `<div style="width:80px;height:80px;border:1px dashed #bbb;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;text-align:center;flex-shrink:0;">QR Code</div>`;
   }
