@@ -245,6 +245,33 @@ export async function generateIrn(invoiceId: string): Promise<{
   const company = invoice.company;
   const customer = invoice.customer;
 
+  // ── Mock Mode Fallback ──────────────────────────────────────────────────
+  if (process.env.MOCK_EINVOICE === 'true') {
+    const mockIrn = require('crypto').randomBytes(32).toString('hex');
+    const mockAckNo = String(Math.floor(100000000000 + Math.random() * 900000000000));
+    const mockAckDate = new Date();
+    // Tiny black & white QR code base64
+    const mockQr = 'iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABb/GLDAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH5QgKCg0XNz44jwAAAZNJREFUeJzt2cGNwzAMQFFhE/4/W3gLp4B0AC1AD7AFVIGswD3sAl5gG/ACe4BtYAvYA6QFWQFpwP2f0/d4lOQ2P2GSR+t8gEcePeADPPKAD/DoA48+8OgDjz7w6AO/7eC3Hzx+2sFvO/gQDr6Hgw/h4EM4+BAO/sVpB7894LcH/PaA3x7w2wP+xWkHvz3gQzj4EA4+hIMP4eBffP4OfnvAh3DwIRx8CAcfwsG/+E9v9vP+Hfy2gw/h4EM4+BAO/sXf7eADPPKAD/DoA48+8OgDjz7w6AO/7eC3Hzx+2sFvO/hQDr6Hgw/h4EM4+BAO/sVpB7894LcH/PaA3x7w2wP+xWkHvz3gQzj4EA4+hIMP4eBffP4OfnvAh3DwIRx8CAcfwsG/+E9v9vP+Hfy2gw/h4EM4+BAO/sXf7eADPPrApw/8AwAA//8DAO36B2jMewUAAAAASUVORK5CYII=';
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        irn: mockIrn,
+        irnAckNumber: mockAckNo,
+        irnAckDate: mockAckDate,
+        eInvoiceQrCode: mockQr,
+        eInvoiceStatus: 'GENERATED',
+      },
+    });
+
+    return {
+      irn: mockIrn,
+      ackNumber: mockAckNo,
+      ackDate: mockAckDate,
+      qrCode: mockQr,
+    };
+  }
+
   // Validate company e-invoicing config
   if (!company.eInvoicingEnabled) throw new Error('E-Invoicing is not enabled for this company');
   if (!company.irpApiKey) throw new Error('Masters India API key not configured in Settings');
@@ -334,6 +361,19 @@ export async function cancelIrn(
   if (!invoice) throw new Error('Invoice not found');
   if (!invoice.irn) throw new Error('This invoice has no IRN to cancel');
   if (invoice.eInvoiceStatus === 'CANCELLED') throw new Error('IRN already cancelled');
+
+  // ── Mock Mode Fallback ──────────────────────────────────────────────────
+  if (process.env.MOCK_EINVOICE === 'true') {
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        eInvoiceStatus: 'CANCELLED',
+        irnCancelledAt: new Date(),
+        irnCancelReason: cancelReason,
+      },
+    });
+    return;
+  }
 
   const company = invoice.company;
   if (!company.irpApiKey || !company.irpUsername || !company.irpPassword || !company.gstin) {
