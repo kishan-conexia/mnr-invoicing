@@ -114,6 +114,16 @@ async function loadCompany() {
     ? 'E-Invoicing is ENABLED. IRN will be generated for all GST invoices.'
     : 'E-Invoicing is disabled. Enable it when your company exceeds ₹5 Crore annual turnover.';
 
+  // Height8
+  document.getElementById('f_height8Enabled').checked = !!c.height8Enabled;
+  document.getElementById('f_height8ApiUrl').value = c.height8ApiUrl || '';
+  document.getElementById('f_height8Username').value = c.height8Username || '';
+  document.getElementById('height8PasswordHint').textContent = c.height8PasswordSet ? '(already set — leave blank to keep it)' : '(not set yet)';
+  document.getElementById('height8Status').className = 'statusMsg ' + (c.height8Enabled ? 'success' : '');
+  document.getElementById('height8Status').textContent = c.height8Enabled
+    ? 'Height8 Integration is ENABLED. Top-ups will be pushed to the Height8 API.'
+    : 'Height8 Integration is disabled.';
+
   renderLogo(c.logoUrl);
 }
 
@@ -205,6 +215,13 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     ...(document.getElementById('f_irpPassword').value
       ? { irpPassword: document.getElementById('f_irpPassword').value }
       : {}),
+    // Height8
+    height8Enabled: document.getElementById('f_height8Enabled').checked,
+    height8ApiUrl: document.getElementById('f_height8ApiUrl').value || undefined,
+    height8Username: document.getElementById('f_height8Username').value || undefined,
+    ...(document.getElementById('f_height8Password').value
+      ? { height8Password: document.getElementById('f_height8Password').value }
+      : {}),
   };
 
   const res = await fetch('/api/company', {
@@ -221,6 +238,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   document.getElementById('f_razorpayKeySecret').value = '';
   document.getElementById('f_resendApiKey').value = '';
   document.getElementById('f_irpPassword').value = '';
+  document.getElementById('f_height8Password').value = '';
   showStatus(statusEl, 'Settings saved.', false);
   loadCompany();
 });

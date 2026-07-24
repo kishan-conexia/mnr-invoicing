@@ -159,6 +159,32 @@
       <div class="statusMsg" id="einvoiceStatus" style="display:block; margin-top:8px;"></div>
     </div>
 
+    <div style="border-top:1px solid #e2e2e2; padding-top:24px;">
+      <h2>🌐 Height8 Technologies Integration</h2>
+      <p style="font-size:12px; color:#777; margin-top:-8px;">
+        When enabled, any successful wallet top-up in this portal will automatically be sent to the Height8 API.
+      </p>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <input type="checkbox" id="f_height8Enabled" style="width:16px;height:16px;cursor:pointer;">
+        <label for="f_height8Enabled" style="cursor:pointer; font-weight:600;">Enable Height8 Top-up Integration</label>
+      </div>
+      <div class="row">
+        <div>
+          <label>API Endpoint URL</label>
+          <input id="f_height8ApiUrl" type="url" placeholder="https://api.height8.com/topup">
+        </div>
+        <div>
+          <label>Username (optional)</label>
+          <input id="f_height8Username" type="text" placeholder="Height8 API Username">
+        </div>
+      </div>
+      <div>
+        <label>API Password / Key <span id="height8PasswordHint" style="font-weight:400; color:#888; font-size:11px;"></span></label>
+        <input id="f_height8Password" type="password" placeholder="API Key or Password" autocomplete="new-password" style="max-width:320px;">
+      </div>
+      <div class="statusMsg" id="height8Status" style="display:block; margin-top:8px;"></div>
+    </div>
+
     <div style="text-align:right;">
       <div class="statusMsg" id="saveStatus"></div>
       <button id="saveBtn">Save settings</button>

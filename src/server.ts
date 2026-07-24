@@ -334,6 +334,59 @@ async function razorpayRequest(keyId: string, keySecret: string, method: string,
   return data;
 }
 
+// ── Height8 Technologies Sync ───────────────────────────────────────
+// Asynchronously sends top-up details to Height8 if enabled.
+// We don't block the wallet flow or return errors to the user if this fails;
+// we just log it for the admin to investigate.
+async function syncHeight8Topup(company: any, customerId: string, amount: number, referenceId: string) {
+  if (!company?.height8Enabled || !company?.height8ApiUrl) return;
+
+  try {
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    
+    // NOTE: This is a placeholder payload structure! 
+    // You will need to update this based on the Height8 API docs once you receive them.
+    const payload = {
+      partnerId: customer?.customerCode || customerId,
+      amount: Number(amount),
+      transactionId: referenceId,
+    };
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    
+    // If Height8 uses a Bearer token or API key in headers, add it here:
+    if (company.height8Password) {
+      // Example for Bearer token:
+      headers['Authorization'] = `Bearer ${company.height8Password}`;
+      // Example for custom header:
+      // headers['x-api-key'] = company.height8Password;
+    }
+
+    // If Height8 uses Basic Auth (Username/Password), do this instead:
+    /*
+    if (company.height8Username && company.height8Password) {
+      const auth = Buffer.from(`${company.height8Username}:${company.height8Password}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+    }
+    */
+
+    const res = await fetch(company.height8ApiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`Height8 Sync Failed [HTTP ${res.status}]:`, text);
+    } else {
+      console.log(`Height8 Sync Success: Top-up of ${amount} for ${customer?.customerCode} sent.`);
+    }
+  } catch (err) {
+    console.error('Height8 Sync Error:', err);
+  }
+}
+
 // Public-safe: only reveals whether online payment is configured and the
 // publishable key ID (never the secret) — needed before the portal even
 // shows the "Pay online" button.
@@ -423,6 +476,9 @@ app.post('/api/portal/wallet/topup/verify', requirePortalAuth, async (req: Reque
   });
 
   res.json({ newBalance: result.balance });
+
+  // Fire-and-forget sync to Height8
+  syncHeight8Topup(company, customerId, Number(order.amount), razorpay_payment_id).catch(console.error);
 });
 
 
@@ -490,6 +546,10 @@ app.post('/api/wallet-topup-requests/:id/approve', requireAuth, async (req: Requ
       customerName: request.customer.displayName || request.customer.companyName || request.customer.name,
       newBalance: result.newBalance,
     });
+
+    // Fire-and-forget sync to Height8
+    const company = await prisma.company.findFirst();
+    syncHeight8Topup(company, request.customerId, Number(request.amount), request.id).catch(console.error);
   } catch (err: any) {
     console.error('Top-up approval failed:', err);
     res.status(500).json({ error: `Approval failed: ${err.message || 'unknown error'}` });
@@ -1136,8 +1196,8 @@ app.get('/api/company/public', async (_req: Request, res: Response) => {
 app.get('/api/company', requireAuth, async (_req: Request, res: Response) => {
   const company = await prisma.company.findFirst();
   if (!company) return res.status(404).json({ error: 'No company configured' });
-  const { razorpayKeySecret, resendApiKey, ...safe } = company;
-  res.json({ ...safe, razorpayKeySecretSet: !!razorpayKeySecret, resendApiKeySet: !!resendApiKey });
+  const { razorpayKeySecret, resendApiKey, irpPassword, height8Password, ...safe } = company;
+  res.json({ ...safe, razorpayKeySecretSet: !!razorpayKeySecret, resendApiKeySet: !!resendApiKey, irpPasswordSet: !!irpPassword, height8PasswordSet: !!height8Password });
 });
 
 app.patch('/api/company', requireAuth, async (req: Request, res: Response) => {
@@ -1182,10 +1242,15 @@ app.patch('/api/company', requireAuth, async (req: Request, res: Response) => {
       irpApiKey: req.body.irpApiKey !== undefined ? req.body.irpApiKey : undefined,
       irpUsername: req.body.irpUsername !== undefined ? req.body.irpUsername : undefined,
       irpPassword: req.body.irpPassword !== undefined ? req.body.irpPassword : undefined,
+      // Height8 config
+      height8Enabled: req.body.height8Enabled !== undefined ? req.body.height8Enabled : undefined,
+      height8ApiUrl: req.body.height8ApiUrl !== undefined ? req.body.height8ApiUrl : undefined,
+      height8Username: req.body.height8Username !== undefined ? req.body.height8Username : undefined,
+      height8Password: req.body.height8Password !== undefined ? req.body.height8Password : undefined,
     },
   });
-  const { razorpayKeySecret: _rks, resendApiKey: _rak, irpPassword: _irpPwd, ...safeUpdated } = updated;
-  res.json({ ...safeUpdated, razorpayKeySecretSet: !!updated.razorpayKeySecret, resendApiKeySet: !!updated.resendApiKey, irpPasswordSet: !!updated.irpPassword });
+  const { razorpayKeySecret: _rks, resendApiKey: _rak, irpPassword: _irpPwd, height8Password: _h8Pwd, ...safeUpdated } = updated;
+  res.json({ ...safeUpdated, razorpayKeySecretSet: !!updated.razorpayKeySecret, resendApiKeySet: !!updated.resendApiKey, irpPasswordSet: !!updated.irpPassword, height8PasswordSet: !!updated.height8Password });
 });
 
 app.post('/api/company/logo', requireAuth, (req: Request, res: Response) => {

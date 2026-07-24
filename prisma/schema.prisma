@@ -139,6 +139,12 @@ model Company {
   irpApiKey         String? @map("irp_api_key")       // Masters India API key
   irpUsername       String? @map("irp_username")      // GSTIN username for IRP
   irpPassword       String? @map("irp_password")      // encrypted password for IRP
+  
+  // Height8 Technologies Integration
+  height8Enabled    Boolean @default(false) @map("height8_enabled")
+  height8ApiUrl     String? @map("height8_api_url")
+  height8Username   String? @map("height8_username")
+  height8Password   String? @map("height8_password")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
